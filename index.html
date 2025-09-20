@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>The Veil — Tarot Reading (Single File)</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* Custom styles */
+    :root{
+      --card-w: 220px;
+      --card-h: 340px;
+      --accent: #facc15;
+      --bg-1: #0b1220;
+    }
+    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: radial-gradient(1200px 600px at 10% 10%, rgba(250,204,21,0.02), transparent), linear-gradient(180deg,#071025 0%, #0f1724 100%); color: #e6eef8; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+    .font-cinzel { font-family: 'Cinzel', serif; }
+
+    main { max-width: 1100px; margin: 28px auto; padding: 16px; }
+
+    /* Card visuals */
+    .deck {
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: 12px;
+      overflow: visible;
+      position: relative;
+      perspective: 1200px;
+    }
+    .card {
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: 12px;
+      transform-style: preserve-3d;
+      transition: transform .9s cubic-bezier(.2,.9,.2,1), box-shadow .2s;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+      position: relative;
+    }
+    .card-face {
+      position: absolute; inset: 0; border-radius: 12px; backface-visibility: hidden; display:flex; flex-direction:column; justify-content:space-between; padding: 14px; box-sizing:border-box;
+    }
+    .card-back {
+      background: linear-gradient(180deg,#081226,#0f1724);
+      border: 1px solid rgba(250,204,21,0.06);
+      color: var(--accent);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .card-front {
+      background: linear-gradient(180deg, rgba(250,204,21,0.03), rgba(250,204,21,0.01));
+      color: #fef3c7;
+      transform: rotateY(180deg);
+    }
+    .flipped { transform: rotateY(180deg); }
+
+    /* small variants */
+    .card-small { width: 160px; height: 240px; }
+    .card-labelled { text-align:center; font-size:14px; color:#d1d5db; margin-top:6px; }
+
+    /* shuffle clones */
+    .shuffle-clone { position:absolute; width:var(--card-w); height:var(--card-h); border-radius:12px; background:linear-gradient(180deg,#081226,#0f1724); left:0; top:0; opacity:0.95; border:1px solid rgba(250,204,21,0.04); }
+
+    /* responsive */
+    @media (max-width:900px) {
+      main { padding: 10px; }
+      :root{ --card-w: 160px; --card-h: 240px; }
+    }
+
+    /* small decorative */
+    .glow { box-shadow: 0 6px 30px rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.06); }
+    .muted { color:#9ca3af; }
+    .btn { transition: transform .12s; }
+    .btn:active { transform: translateY(1px); }
+
+    /* reading text pre-wrap */
+    #reading-content { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="text-center mb-6">
+      <h1 class="font-cinzel text-4xl text-amber-300">The Veil of Destiny</h1>
+      <p class="mt-2 muted">Shuffle the deck, draw a spread, and read your message. Tap "Install" after hosting to add to your home screen.</p>
+    </header>
+
+    <!-- controls -->
+    <section class="flex flex-wrap items-center gap-3 mb-6">
+      <label class="muted">Spread:</label>
+      <select id="spread" class="rounded px-3 py-2 bg-slate-800">
+        <option value="one">1-card</option>
+        <option value="three">3-card (Past/Present/Future)</option>
+        <option value="celtic">Celtic Cross (10-card)</option>
+      </select>
+
+      <button id="shuffle" class="btn ml-2 bg-amber-500 text-slate-900 px-4 py-2 rounded font-semibold">Shuffle & Draw</button>
+      <button id="reset" class="btn bg-slate-700 px-3 py-2 rounded text-gray-200">Reset</button>
+
+      <div class="ml-auto flex gap-2">
+        <button id="share" class="btn bg-indigo-600 px-3 py-2 rounded">Share</button>
+        <button id="copy" class="btn bg-slate-700 px-3 py-2 rounded">Copy</button>
+        <button id="save" class="btn bg-slate-700 px-3 py-2 rounded">Save as .txt</button>
+      </div>
+    </section>
+
+    <!-- layout -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- deck -->
+      <div class="lg:col-span-1 flex flex-col items-center gap-4">
+        <div class="deck glow" id="deck-area" title="Click Shuffle & Draw">
+          <div id="deck-back" class="card card-back">
+            <div class="text-center">
+              <svg class="mx-auto" viewBox="0 0 24 24" width="72" height="72" stroke="currentColor" stroke-width="1.2" fill="none">
+                <path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z"/>
+              </svg>
+              <div class="font-cinzel text-amber-300 mt-2">Destiny Awaits</div>
+            </div>
+          </div>
+          <div id="shuffle-area" style="position:absolute; inset:0; pointer-events:none;"></div>
+        </div>
+
+        <div class="text-sm muted text-center px-3">
+          Tip: Some cards can appear <strong>reversed</strong> — they change meaning. For full PWA features, host via HTTPS.
+        </div>
+      </div>
+
+      <!-- spread display -->
+      <div id="spread-area" class="lg:col-span-2 space-y-4">
+        <div id="cards-row" class="flex gap-4 flex-wrap"></div>
+
+        <div id="reading" class="bg-slate-800 p-4 rounded shadow-inner">
+          <h2 class="text-2xl font-cinzel text-amber-300 mb-2">Reading</h2>
+          <div id="reading-content" class="text-gray-200">No reading yet. Shuffle the deck to begin.</div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="mt-6 muted text-center text-xs">Built for you — save & share your readings. Hosting on GitHub Pages or Netlify enables install + offline mode.</footer>
+  </main>
+
+  <script>
+  /****************************************************************
+   * Single-file Tarot app
+   * - Major Arcana (22 cards) with upright/reversed meanings
+   * - Spreads: 1, 3, Celtic Cross (10)
+   * - Shuffle animation, flip effect, reversed chance
+   * - Share / Copy / Save reading
+   * - Creates manifest & service worker via blobs so it's single-file
+   ****************************************************************/
+
+  /* -------------------------
+     Deck: Major Arcana (22)
+     Each card: name, number, icon (svg path), upright/reversed meaning & prediction
+     (Meanings/predictions written concisely.)
+     ------------------------- */
+  const TAROT = [
+    { name:"The Fool", num:"0",
+      icon:`<path d="M12 4v16m-4-8h8"/>`,
+      u: { meaning:"New beginnings, innocence, spontaneity, a free spirit.", prediction:"An exciting new chapter begins—trust your instincts and step forward." },
+      r: { meaning:"Recklessness, hesitation, poor choices.", prediction:"Pause and think; avoid impulsive actions that may lead astray." }
+    },
+    { name:"The Magician", num:"I",
+      icon:`<path d="M4 21v-13a3 3 0 0 1 3 -3h10a3 3 0 0 1 3 3v13"/><path d="M4 10h16"/>`,
+      u: { meaning:"Manifestation, resourcefulness, inspired action.", prediction:"You have the skills to turn ideas into reality—act with focus." },
+      r: { meaning:"Manipulation, scattered energy, unrealized potential.", prediction:"Concentrate your efforts and avoid trying to control others." }
+    },
+    { name:"The High Priestess", num:"II",
+      icon:`<path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9l8 -4.5"/>`,
+      u: { meaning:"Intuition, sacred knowledge, inner voice.", prediction:"Listen inward; answers come from your subconscious and dreams." },
+      r: { meaning:"Secrets, hidden motives, disconnected from intuition.", prediction:"Be cautious—someone may hide information; trust inner signals." }
+    },
+    { name:"The Empress", num:"III",
+      icon:`<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/>`,
+      u: { meaning:"Nurturing, abundance, creativity, fertility.", prediction:"Growth and creativity flourish—nurture projects and relationships." },
+      r: { meaning:"Creative block, over-dependence, neglect.", prediction:"Rebalance priorities and care for your own needs first." }
+    },
+    { name:"The Emperor", num:"IV",
+      icon:`<path d="M6 3v18h12v-18h-12z"/>`,
+      u: { meaning:"Authority, structure, stability, leadership.", prediction:"Implement structure and take charge to create stability." },
+      r: { meaning:"Rigidity, domination, lack of flexibility.", prediction:"Loosen control; collaboration will serve you better than strict rules." }
+    },
+    { name:"The Hierophant", num:"V",
+      icon:`<path d="M6 3v12l6 6l6 -6v-12h-12z"/>`,
+      u: { meaning:"Tradition, guidance, learning from institutions.", prediction:"Seek mentorship or formal guidance—tradition may guide you." },
+      r: { meaning:"Dogma, conformity, rebellion against authority.", prediction:"Question established rules; seek a path that aligns with your values." }
+    },
+    { name:"The Lovers", num:"VI",
+      icon:`<path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/>`,
+      u: { meaning:"Love, values alignment, meaningful choice.", prediction:"A relationship or important choice resonates with your true self." },
+      r: { meaning:"Imbalance, conflict, poor choices.", prediction:"Reflect carefully before committing—look for misalignments in values." }
+    },
+    { name:"The Chariot", num:"VII",
+      icon:`<path d="M7 17l0 -10l-2 2"/><path d="M17 17l0 -10l2 2"/><path d="M5 17h14v-2h-14z"/><path d="M5 8h14v-2h-14z"/>`,
+      u: { meaning:"Willpower, victory, determination.", prediction:"Push forward with confidence—focused effort yields success." },
+      r: { meaning:"Loss of control, scattered direction.", prediction:"Reassess goals; regain discipline before proceeding." }
+    },
+    { name:"Strength", num:"VIII",
+      icon:`<path d="M15 8a3 3 0 0 0 -6 0"/><path d="M6 21h12"/><path d="M12 3v5"/><path d="M12 16a4 4 0 0 1 -4 -4h8a4 4 0 0 1 -4 4z"/>`,
+      u: { meaning:"Courage, patience, compassion.", prediction:"Gentle courage and persistence help you overcome challenges." },
+      r: { meaning:"Self-doubt, impatience, misuse of power.", prediction:"Cultivate patience; avoid harshness or forcing outcomes." }
+    },
+    { name:"The Hermit", num:"IX",
+      icon:`<path d="M12 3l-8 4l8 14l8 -14z"/><path d="M12 8a2 2 0 1 0 0 4a2 2 0 0 0 0-4z"/>`,
+      u: { meaning:"Introspection, solitude, inner guidance.", prediction:"Take time alone to find clarity and inner wisdom." },
+      r: { meaning:"Isolation, withdrawal, loneliness.", prediction:"Reconnect gently; avoid hiding from necessary engagement." }
+    },
+    { name:"Wheel of Fortune", num:"X",
+      icon:`<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/>`,
+      u: { meaning:"Change, cycles, destiny, luck.", prediction:"A turning point brings new opportunities—embrace change." },
+      r: { meaning:"Resistance to change, delays.", prediction:"Be patient; try to adapt rather than resist the inevitable shift." }
+    },
+    { name:"Justice", num:"XI",
+      icon:`<path d="M12 3v18"/><path d="M4 12h16"/><path d="M7 6l10 12"/><path d="M7 18l10 -12"/>`,
+      u: { meaning:"Fairness, truth, cause and effect.", prediction:"Honesty and accountability will bring balanced outcomes." },
+      r: { meaning:"Unfairness, legal issues, bias.", prediction:"Act with integrity; seek fair mediation if needed." }
+    },
+    { name:"The Hanged Man", num:"XII",
+      icon:`<path d="M12 4v10m0 6v-2m-4-6h8m-4 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>`,
+      u: { meaning:"Pause, surrender, new perspective.", prediction:"A needed pause reveals a fresh viewpoint—let go and observe." },
+      r: { meaning:"Stagnation, needless sacrifice, indecision.", prediction:"Take action when clarity asks for it; avoid passivity." }
+    },
+    { name:"Death", num:"XIII",
+      icon:`<path d="M8 3v5h8v-5h-8z m-2 7h12l-6 8z"/>`,
+      u: { meaning:"Endings, transformation, rebirth.", prediction:"Letting go clears the path for positive renewal." },
+      r: { meaning:"Resistance to change, fear of loss.", prediction:"Release attachments gently to allow transformation." }
+    },
+    { name:"Temperance", num:"XIV",
+      icon:`<path d="M5 3v18h14v-18h-14z m5 5h4v8h-4z"/>`,
+      u: { meaning:"Balance, moderation, harmony.", prediction:"Blend perspectives and be patient—harmony grows steadily." },
+      r: { meaning:"Imbalance, excess, impatience.", prediction:"Restore equilibrium by slowing down and recalibrating." }
+    },
+    { name:"The Devil", num:"XV",
+      icon:`<path d="M12 3l-8 4v8l8 4l8-4v-8l-8-4z m0 4a3 3 0 1 0 0 6a3 3 0 0 0 0-6z m-4 8h8"/>`,
+      u: { meaning:"Attachment, shadow self, temptation.", prediction:"Face unhealthy patterns—the power to change is within you." },
+      r: { meaning:"Breaking free, reclaiming power.", prediction:"You are releasing chains—celebrate small victories of liberation." }
+    },
+    { name:"The Tower", num:"XVI",
+      icon:`<path d="M6 3h12v18h-12z m3 14h6v-6h-6z m2-10h2v-2h-2z"/>`,
+      u: { meaning:"Upheaval, revelation, sudden change.", prediction:"A shake-up clears illusions—after chaos comes truth and rebuilding." },
+      r: { meaning:"Avoided disaster, delayed change.", prediction:"Rebuild deliberately; use the lesson to create stronger foundations." }
+    },
+    { name:"The Star", num:"XVII",
+      icon:`<path d="M12 2l2.5 7.5h8.5l-7 5.5l2.5 7.5l-7-5.5l-7 5.5l2.5-7.5l-7-5.5h8.5z"/>`,
+      u: { meaning:"Hope, renewal, spiritual connection.", prediction:"Healing and optimism return—trust in guidance and purpose." },
+      r: { meaning:"Lost faith, discouragement.", prediction:"Seek small sources of hope and reconnect to what inspires you." }
+    },
+    { name:"The Moon", num:"XVIII",
+      icon:`<path d="M12 18a6 6 0 1 1 0-12a6 6 0 0 1 0 12z"/>`,
+      u: { meaning:"Intuition, subconscious, mysteries.", prediction:"Navigate uncertainty with intuition—not all is visible yet." },
+      r: { meaning:"Illusion, anxiety, deception.", prediction:"Clarify confusion before acting; check facts and feelings." }
+    },
+    { name:"The Sun", num:"XIX",
+      icon:`<path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M12 2v2m0 16v2m8-10h-2m-12 0h-2m6.3-6.3l-1.4-1.4m11.3 11.3l-1.4-1.4"/>`,
+      u: { meaning:"Joy, success, vitality, clarity.", prediction:"Celebrate achievements; a bright phase brings clarity and warmth." },
+      r: { meaning:"Temporary setbacks, over-optimism.", prediction:"Stay grounded—enjoy the light but plan practically." }
+    },
+    { name:"Judgement", num:"XX",
+      icon:`<path d="M10 3h4v4h-4z m-2 6h8v2h-8z m2 4h4v6h-4z"/>`,
+      u: { meaning:"Rebirth, calling, absolution.", prediction:"A reckoning or awakening invites you to rise renewed." },
+      r: { meaning:"Self-doubt, refusing the call.", prediction:"Listen to your inner calling and forgive past mistakes." }
+    },
+    { name:"The World", num:"XXI",
+      icon:`<path d="M12 12m-10 0a10 10 0 1 0 20 0a10 10 0 1 0 -20 0"/><path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"/>`,
+      u: { meaning:"Completion, integration, accomplishment.", prediction:"A cycle completes—recognize your achievement and renew goals." },
+      r: { meaning:"Incomplete, delayed closure.", prediction:"Finish unfinished business to move forward fully." }
+    }
+  ];
+
+  /* -------------------------
+     DOM refs & helpers
+     ------------------------- */
+  const $ = sel => document.querySelector(sel);
+  const spreadSel = $('#spread');
+  const shuffleBtn = $('#shuffle');
+  const resetBtn = $('#reset');
+  const cardsRow = $('#cards-row');
+  const readingContent = $('#reading-content');
+  const shuffleArea = $('#shuffle-area');
+  const shareBtn = $('#share');
+  const copyBtn = $('#copy');
+  const saveBtn = $('#save');
+
+  let lastReadingText = '';
+  let lastPicks = [];
+
+  function rand(n){ return Math.floor(Math.random()*n); }
+
+  /* Shuffle animation: clones fly out and fade */
+  function animateShuffle() {
+    shuffleArea.innerHTML = '';
+    const clones = 8;
+    for (let i=0;i<clones;i++){
+      const c = document.createElement('div');
+      c.className = 'shuffle-clone';
+      c.style.left = (5 + i*6) + 'px';
+      c.style.top = (5 + i*4) + 'px';
+      c.style.transform = `rotate(${rand(30)-15}deg)`;
+      shuffleArea.appendChild(c);
+      // animate to random endpoint
+      setTimeout(()=> {
+        c.style.transition = 'transform 700ms cubic-bezier(.2,.9,.2,1), opacity 700ms';
+        const tx = rand(500)-250;
+        const ty = -(120 + rand(180));
+        const rot = rand(100)-50;
+        c.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${0.7 + Math.random()*0.6})`;
+        c.style.opacity = 0;
+      }, i*60);
+    }
+    setTimeout(()=> shuffleArea.innerHTML = '', 1000 + clones*60);
+  }
+
+  /* Pick n unique cards from TAROT, mark reversed (50%) */
+  function pickCards(n) {
+    const deck = TAROT.slice();
+    const picks = [];
+    for (let i=0;i<n;i++){
+      if (deck.length === 0) break;
+      const idx = rand(deck.length);
+      const c = JSON.parse(JSON.stringify(deck.splice(idx,1)[0])); // deep-ish copy
+      c.reversed = Math.random() < 0.5;
+      picks.push(c);
+    }
+    return picks;
+  }
+
+  /* Create visual card element (front/back). We'll flip it by toggling 'flipped' class */
+  function makeCardElement(card, idx, total, posLabel){
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex flex-col items-center';
+
+    const container = document.createElement('div');
+    container.className = 'card';
+    container.style.width = getComputedStyle(document.documentElement).getPropertyValue('--card-w') || '220px';
+    container.style.height = getComputedStyle(document.documentElement).getPropertyValue('--card-h') || '340px';
+
+    const back = document.createElement('div');
+    back.className = 'card-face card-back';
+    back.innerHTML = `<div class="text-center"><svg viewBox="0 0 24 24" width="56" height="56" stroke="currentColor" stroke-width="1.1" fill="none"><path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z"/></svg></div>`;
+
+    const front = document.createElement('div');
+    front.className = 'card-face card-front';
+    // If reversed, rotate the front visually
+    const reversedStyle = card.reversed ? 'transform: rotateZ(180deg);' : '';
+    front.innerHTML = `
+      <div style="${reversedStyle}" class="flex flex-col justify-between h-full">
+        <div class="text-left font-cinzel text-amber-300">${card.num}</div>
+        <div class="flex-1 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" width="110" height="110" stroke="currentColor" stroke-width="1.05" fill="none">${card.icon}</svg>
+        </div>
+        <div class="text-center font-cinzel text-lg text-amber-200">${card.name}</div>
+      </div>
+    `;
+
+    container.appendChild(back);
+    container.appendChild(front);
+    wrapper.appendChild(container);
+
+    // label (position for spreads)
+    const label = document.createElement('div');
+    label.className = 'card-labelled';
+    label.textContent = posLabel || (card.name + (card.reversed ? ' (Reversed)' : ''));
+    wrapper.appendChild(label);
+
+    // add small delay flip to reveal front (staggered per index)
+    setTimeout(()=> {
+      container.classList.add('flipped');
+    }, 220 + idx * 160);
+
+    return { wrapper, container, front, back };
+  }
+
+  /* Format reading text */
+  function formatReading(picks, spreadType) {
+    if (!picks || picks.length === 0) return 'No reading.';
+    let out = '';
+    if (spreadType === 'one') {
+      const c = picks[0];
+      out += `${c.name} ${c.reversed ? '(Reversed)' : '(Upright)'}\n\n`;
+      out += `Meaning: ${c.reversed ? c.r.meaning : c.u.meaning}\n`;
+      out += `Prediction: ${c.reversed ? c.r.prediction : c.u.prediction}\n`;
+    } else if (spreadType === 'three') {
+      const labels = ['Past','Present','Future'];
+      picks.forEach((c,i) => {
+        out += `${labels[i]} — ${c.name} ${c.reversed ? '(Reversed)' : ''}\n`;
+        out += `  Meaning: ${c.reversed ? c.r.meaning : c.u.meaning}\n`;
+        out += `  Prediction: ${c.reversed ? c.r.prediction : c.u.prediction}\n\n`;
+      });
+    } else { // celtic
+      const labels = ['Present','Challenge','Root','Past','Goal','Future','You','Environment','Hopes/Fears','Outcome'];
+      picks.forEach((c,i) => {
+        out += `${labels[i] || ('Pos'+(i+1))} — ${c.name} ${c.reversed ? '(Reversed)' : ''}\n`;
+        out += `  Meaning: ${c.reversed ? c.r.meaning : c.u.meaning}\n`;
+        out += `  Prediction: ${c.reversed ? c.r.prediction : c.u.prediction}\n\n`;
+      });
+    }
+    return out.trim();
+  }
+
+  /* Draw action */
+  function doDraw(){
+    const spread = spreadSel.value;
+    let count = 1;
+    if (spread === 'three') count = 3;
+    else if (spread === 'celtic') count = 10;
+
+    animateShuffle();
+    cardsRow.innerHTML = '';
+    readingContent.textContent = 'Shuffling...';
+
+    setTimeout(()=> {
+      const picks = pickCards(count);
+      lastPicks = picks;
+
+      // labels for positions
+      let posLabels = [];
+      if (spread === 'one') posLabels = ['Insight'];
+      else if (spread === 'three') posLabels = ['Past','Present','Future'];
+      else posLabels = ['Present','Challenge','Root','Past','Goal','Future','You','Environment','Hopes/Fears','Outcome'];
+
+      picks.forEach((p, idx) => {
+        const {wrapper} = makeCardElement(p, idx, count, posLabels[idx]);
+        cardsRow.appendChild(wrapper);
+      });
+
+      // after flips show reading
+      setTimeout(()=> {
+        const text = formatReading(picks, spread);
+        readingContent.textContent = text;
+        lastReadingText = text;
+      }, 900 + count*160);
+    }, 200);
+  }
+
+  /* Reset */
+  function resetAll(){
+    cardsRow.innerHTML = '';
+    readingContent.textContent = 'No reading yet. Shuffle the deck to begin.';
+    lastReadingText = '';
+    lastPicks = [];
+  }
+
+  /* Share / Copy / Save functions */
+  async function shareReading(){
+    if (!lastReadingText) { alert('No reading yet — draw first.'); return; }
+    if (navigator.share) {
+      try {
+        await navigator.share({ title:'My Tarot Reading', text:lastReadingText });
+      } catch(e){ console.warn(e); }
+    } else {
+      await copyReading();
+      alert('Reading copied to clipboard (fallback).');
+    }
+  }
+  async function copyReading(){
+    if (!lastReadingText) { alert('No reading yet — draw first.'); return; }
+    try {
+      await navigator.clipboard.writeText(lastReadingText);
+      alert('Reading copied to clipboard.');
+    } catch(e) { alert('Copy failed: your browser may restrict clipboard access.'); }
+  }
+  function saveReading() {
+    if (!lastReadingText) { alert('No reading yet — draw first.'); return; }
+    const blob = new Blob([lastReadingText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tarot-reading.txt';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /* Event bindings */
+  const spreadSel = $('#spread');
+  shuffleBtn.addEventListener('click', doDraw);
+  resetBtn.addEventListener('click', resetAll);
+  shareBtn.addEventListener('click', shareReading);
+  copyBtn.addEventListener('click', copyReading);
+  saveBtn.addEventListener('click', saveReading);
+
+  /* Initially */
+  resetAll();
+
+  /* -------------------------
+     PWA helper: create manifest & service worker via blobs
+     so this is still a single file project. NOTE:
+     - Service worker will register only on HTTPS or localhost.
+     - creating via blobs allows single-file distribution.
+     ------------------------- */
+  (function createPWAResources(){
+    // manifest
+    const manifest = {
+      name: "The Veil — Tarot Reading",
+      short_name: "The Veil",
+      start_url: "./index.html",
+      display: "standalone",
+      background_color: "#071025",
+      theme_color: "#facc15",
+      icons: [
+        { src: "data:image/svg+xml;base64," + btoa(`<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192'><rect width='100%' height='100%' fill='#0f1724'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-family='Cinzel, serif' font-size='36' fill='#facc15'>✦</text></svg>`), sizes:"192x192", type:"image/svg+xml" }
+      ]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+    const manifestURL = URL.createObjectURL(manifestBlob);
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = manifestURL;
+    document.head.appendChild(link);
+
+    // service worker script as string
+    const swScript = `
+      const CACHE_NAME = 'tarot-cache-v1';
+      const FILES = ['./','./index.html'];
+      self.addEventListener('install', e=> {
+        e.waitUntil(caches.open(CACHE_NAME).then(c=> c.addAll(FILES)));
+        self.skipWaiting();
+      });
+      self.addEventListener('activate', e=> {
+        e.waitUntil(caches.keys().then(keys=> Promise.all(keys.map(k=> { if(k!==CACHE_NAME) return caches.delete(k);}))));
+        self.clients.claim();
+      });
+      self.addEventListener('fetch', e=>{
+        e.respondWith(caches.match(e.request).then(r=> r || fetch(e.request).catch(()=> caches.match('./'))));
+      });
+    `;
+    const swBlob = new Blob([swScript], {type:'application/javascript'});
+    const swURL = URL.createObjectURL(swBlob);
+
+    // register worker from blob
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register(swURL).then(reg=>{
+        console.log('Service worker registered (blob):', reg.scope);
+      }).catch(err=>{
+        console.warn('SW registration failed', err);
+      });
+    }
+  })();
+
+  </script>
+</body>
+</html>
